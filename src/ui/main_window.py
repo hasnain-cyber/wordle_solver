@@ -1,0 +1,102 @@
+from typing import List
+
+from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QScrollArea, QPushButton, QHBoxLayout, QLineEdit, \
+    QFrame
+
+from src.types.info import InfoType, Info
+from src.types.state import State
+from src.utils.constants import WINDOW_WIDTH, WINDOW_HEIGHT
+
+from PySide6.QtCore import Qt
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, word_list: List[str], word_dict: dict[str, int], total_word_freq: int):
+        super().__init__()
+
+        self.setWindowTitle("Wordle Solver")
+        self.setFixedSize(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+        self.word_length = 5
+
+        self.state = State(word_list, self.word_length)
+        self.word_dict = word_dict
+        self.total_word_freq = total_word_freq
+
+        self.update_ui()
+
+    def evaluate(self):
+        pass
+
+    def update_ui(self):
+        rows_layout = QVBoxLayout()
+
+        for i, info_state in enumerate(self.state.infos):
+            rows_layout.addLayout(self.draw_row(info_state, i != len(self.state.infos) - 1))
+
+        rows_widget = QWidget()
+        rows_widget.setLayout(rows_layout)
+
+        scroll_area = QScrollArea()
+        scroll_area.setWidget(rows_widget)
+
+        evaluate_button = QPushButton("Evaluate")
+        evaluate_button.clicked.connect(self.evaluate)
+
+        layout = QVBoxLayout()
+        layout.addWidget(scroll_area)
+        layout.addWidget(evaluate_button)
+
+        widget = QWidget()
+        widget.setLayout(layout)
+
+        self.setCentralWidget(widget)
+
+    def cycle_info_type(self, info):
+        info_types: List[InfoType] = list(InfoType)
+        current_index = info_types.index(info.info_type)
+        next_index = (current_index + 1) % len(info_types)
+        info.info_type = info_types[next_index]
+
+        self.update_ui()
+
+    def handle_text_change(self, text, info):
+        if text:
+            info.letter = text
+        else:
+            info.letter = ""
+            info.info_type = InfoType.NO_INFORMATION
+
+    def draw_row(self, info_state: List[Info], is_disabled) -> QHBoxLayout:
+        row_layout = QHBoxLayout()
+
+        for info in info_state:
+            letter_layout = QVBoxLayout()
+
+            line_edit = QLineEdit(info.letter if info.letter else "")
+            line_edit.setFixedSize(40, 40)
+            line_edit.setEnabled(not is_disabled)
+            line_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            line_edit.setMaxLength(2)
+            line_edit.setStyleSheet(f"""
+                                background-color: {info.info_type.color};
+                                border: 1px solid black;
+                                border-radius: 1px;
+                            """)
+            line_edit.textChanged.connect(
+                lambda text, info_to_update=info: self.handle_text_change(text, info_to_update))
+            letter_layout.addWidget(line_edit)
+
+            box = QFrame()
+            box.setFixedSize(40, 10)
+            box.setStyleSheet(f"""
+                        background-color: {info.info_type.color};
+                        border: 1px solid black;
+                        border-radius: 1px;
+                    """)
+            box.mousePressEvent = lambda event, info_to_cycle=info: self.cycle_info_type(info_to_cycle)
+            letter_layout.addWidget(box)
+
+            row_layout.addLayout(letter_layout)
+
+        return row_layout

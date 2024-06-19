@@ -1,0 +1,5 @@
+WORDLIST_PATH = "wordlist.txt"
+WORDDICT_PATH = "wordfreq.csv"
+
+WINDOW_WIDTH = 600
+WINDOW_HEIGHT = 600
