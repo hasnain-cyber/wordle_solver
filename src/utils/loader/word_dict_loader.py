@@ -1,11 +1,14 @@
-from src.utils.loader.loader import Loader
-
-
-class WordDictLoader(Loader):
+class WordDictLoader:
     def __init__(self, filepath: str):
-        super().__init__(filepath)
+        self.filepath = filepath
 
+        self.data: dict[str, int] = {}
         self.total_freq = 0
+
+    def get(self):
+        if len(self.data) == 0:
+            self.load(self.filepath)
+        return self.data
 
     def load(self, filepath: str):
         self.data = {}
@@ -16,8 +19,3 @@ class WordDictLoader(Loader):
                 word, freq = line.strip().split(',')
                 self.data[word] = int(freq)
                 self.total_freq += self.data[word]
-
-    def get_total_freq(self):
-        if self.data is None:
-            self.load(self.filepath)
-        return self.total_freq

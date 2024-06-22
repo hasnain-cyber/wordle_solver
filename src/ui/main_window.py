@@ -3,6 +3,7 @@ from typing import List
 from PySide6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QScrollArea, QPushButton, QHBoxLayout, QLineEdit, \
     QFrame
 
+from src.solver import Solver
 from src.types.info import InfoType, Info
 from src.types.state import State
 from src.utils.constants import WINDOW_WIDTH, WINDOW_HEIGHT
@@ -11,7 +12,7 @@ from PySide6.QtCore import Qt
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, word_list: List[str], word_dict: dict[str, int], total_word_freq: int):
+    def __init__(self, word_dict: dict[str, int], total_word_freq: int):
         super().__init__()
 
         self.setWindowTitle("Wordle Solver")
@@ -19,20 +20,34 @@ class MainWindow(QMainWindow):
 
         self.word_length = 5
 
-        self.state = State(word_list, self.word_length)
+        self.state = State(self.word_length)
         self.word_dict = word_dict
         self.total_word_freq = total_word_freq
 
         self.update_ui()
 
     def evaluate(self):
-        pass
+        for info in self.state.infos[-1]:
+            if info.info_type == InfoType.NO_INFORMATION or not info.letter:
+                return
+
+        solver = Solver(self.word_dict, self.word_length, self.state.infos)
+        guesses = solver.get_guesses()
+        guesses.sort(key=lambda x: x[1], reverse=True)
+        if len(guesses) <= 10:
+            print(guesses)
+        else:
+            print(guesses[:10])
+
+        self.state.infos.append([Info() for _ in range(self.word_length)])
+
+        self.update_ui()
 
     def update_ui(self):
         rows_layout = QVBoxLayout()
 
         for i, info_state in enumerate(self.state.infos):
-            rows_layout.addLayout(self.draw_row(info_state, i != len(self.state.infos) - 1))
+            rows_layout.addLayout(self.draw_row(info_state))
 
         rows_widget = QWidget()
         rows_widget.setLayout(rows_layout)
@@ -53,21 +68,26 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(widget)
 
     def cycle_info_type(self, info):
-        info_types: List[InfoType] = list(InfoType)
-        current_index = info_types.index(info.info_type)
-        next_index = (current_index + 1) % len(info_types)
-        info.info_type = info_types[next_index]
+        if info.letter:
+            info_types: List[InfoType] = list(InfoType)
+            current_index = info_types.index(info.info_type)
+            next_index = (current_index + 1) % len(info_types)
+            info.info_type = info_types[next_index]
+        else:
+            info.info_type = InfoType.NO_INFORMATION
 
         self.update_ui()
 
     def handle_text_change(self, text, info):
         if text:
-            info.letter = text
+            info.letter = text.lower()
         else:
             info.letter = ""
             info.info_type = InfoType.NO_INFORMATION
 
-    def draw_row(self, info_state: List[Info], is_disabled) -> QHBoxLayout:
+        self.update_ui()
+
+    def draw_row(self, info_state: List[Info]) -> QHBoxLayout:
         row_layout = QHBoxLayout()
 
         for info in info_state:
@@ -75,7 +95,6 @@ class MainWindow(QMainWindow):
 
             line_edit = QLineEdit(info.letter if info.letter else "")
             line_edit.setFixedSize(40, 40)
-            line_edit.setEnabled(not is_disabled)
             line_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
             line_edit.setMaxLength(2)
             line_edit.setStyleSheet(f"""
